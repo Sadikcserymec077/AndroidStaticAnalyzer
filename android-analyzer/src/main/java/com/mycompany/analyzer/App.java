@@ -141,7 +141,7 @@ public class App {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
         String jsonReport = gson.toJson(vulnerabilities);
         String jsonReportFileName = "analysis_report_" + System.currentTimeMillis() + ".json";
-        Path jsonReportFilePath = Paths.get(jsonReportFileName);
+        Path jsonReportFilePath = Paths.get("target", jsonReportFileName); // NEW: Saves to target/
         try {
             Files.writeString(jsonReportFilePath, jsonReport);
             System.out.println("JSON report saved to: " + jsonReportFilePath.toAbsolutePath());
@@ -152,6 +152,7 @@ public class App {
 
         // Generate and save PDF report
         String pdfReportFileName = "analysis_report_" + System.currentTimeMillis() + ".pdf";
+        Path pdfReportFilePath = Paths.get("target", pdfReportFileName); // NEW: Saves to target/
         try {
             generatePdfReport(vulnerabilities, pdfReportFileName);
             System.out.println("PDF report saved to: " + Paths.get(pdfReportFileName).toAbsolutePath());
@@ -339,16 +340,92 @@ public class App {
             );
 
             // Regex for sensitive data logging (Log.d/i/e/w with potentially sensitive variable names)
-            // This is a basic pattern; real analysis often requires data flow analysis.
-            // Here, we look for Log calls that might print something generic or a variable that sounds sensitive.
             Pattern sensitiveLogPattern = Pattern.compile(
                 "android\\.util\\.Log\\.(d|i|w|e|v|wtf)\\(.*?(\"password\"|\"secret\"|\"token\"|\"key\"|pass|secret|token|key|pwd).*?\\)",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL
             );
 
+            // Regex for simplified sensitive input to log sink (basic flow simulation)
+            Pattern sensitiveInputToLogPattern = Pattern.compile(
+                "(String\\s+\\w+\\s*=\\s*(?:intent\\.getStringExtra|editText\\.getText)\\([^)]*\\);\\s*|)" +
+                "android\\.util\\.Log\\.(d|i|w|e|v|wtf)\\(.*?(\\b\\w+\\b|\\\"password\\\"|\\\"secret\\\").*?\\)",
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL
+            );
 
+            // NEW Pattern 1: Weak Cryptography (e.g., AES/ECB/PKCS5Padding, DES)
+            Pattern weakCipherPattern = Pattern.compile(
+                "Cipher\\.getInstance\\([\"'](AES\\/ECB|DES|RC4|PBEWithMD5AndDES).*?[\"']\\)",
+                Pattern.CASE_INSENSITIVE
+            );
+
+            // NEW Pattern 2: Insecure File Mode (MODE_WORLD_READABLE/WRITABLE)
+            Pattern insecureFileModePattern = Pattern.compile(
+                "Context\\s*\\.\\s*(?:MODE_WORLD_READABLE|MODE_WORLD_WRITABLE)",
+                Pattern.CASE_INSENSITIVE
+            );
+            // ... inside scanJavaFileForInsecureApiUsage method ...
+// ... (existing patterns: webviewJsEnabledPattern, sensitiveLogPattern, sensitiveInputToLogPattern, weakCipherPattern, insecureFileModePattern) ...
+
+// NEW Pattern 3: Insecure TLS/SSL Certificate Validation
+// Looks for patterns that disable SSL certificate validation (e.g., trustAllCertificates, insecure hostname verifiers)
+Pattern insecureCertValidationPattern = Pattern.compile(
+    "(HttpsURLConnection\\.setDefaultHostnameVerifier\\(SSLCertificateSocketFactory\\.ALLOW_ALL_HOSTNAME_VERIFIER\\)|" +
+    "new\\s+X509TrustManager\\(\\s*\\)\\s*\\{.*?checkClientTrusted.*?checkServerTrusted.*?getAcceptedIssuers.*?\\}\\)|" +
+    "new\\s+HostnameVerifier\\(\\s*\\)\\s*\\{.*?verify\\(.*?true\\).*?\\})",
+    Pattern.CASE_INSENSITIVE | Pattern.DOTALL // DOTALL for multiline matches within anonymous classes
+);
+
+// NEW Pattern 4: Hardcoded Cryptographic Keys or IVs
+// Looks for byte arrays or strings assigned to variables named like 'key' or 'iv' or 'salt'
+// and containing what looks like a hardcoded value (e.g., new byte[]{...}, "abcdef1234567890...")
+Pattern hardcodedCryptoPattern = Pattern.compile(
+    "(byte\\[\\]\\s+\\w+\\s*=\\s*new\\s+byte\\[\\]\\s*\\{[^}]+}|String\\s+\\w+\\s*=\\s*\"[a-fA-F0-9]{16,}\"\\s*\\.\\s*(?:getBytes|decode)|" + // Hex string or byte array
+    "(?:SecretKeySpec|IvParameterSpec)\\s*\\([^,]+\\s*,\\s*\"[A-Z]+\"\\s*\\)|" + // Key/IV spec with hardcoded key/iv
+    "(key|iv|salt|password)\\s*=\\s*\"([a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?`~]{16,})\"" // Variable assignment like key = "..."
+    , Pattern.CASE_INSENSITIVE
+);
+
+for (int i = 0; i < lines.size(); i++) {
+    String line = lines.get(i);
+    String lowerCaseLine = line.toLowerCase();
+
+    // ... Existing Checks (WebView, Sensitive Log, Simplified Taint Flow, Weak Cryptography, Insecure File Mode) ...
+
+    // Check 6: Insecure Certificate Validation
+    Matcher insecureCertMatcher = insecureCertValidationPattern.matcher(line);
+    if (insecureCertMatcher.find()) {
+        String matchedSnippet = insecureCertMatcher.group(0);
+        vulnerabilities.add(new Vulnerability(
+            "Insecure Certificate/Hostname Validation",
+            "Weak or missing SSL/TLS certificate or hostname validation detected.",
+            "High",
+            relativePath,
+            "Found: '" + matchedSnippet + "' in line " + (i + 1) + ". This bypasses trust checks, making the app vulnerable to Man-in-the-Middle (MITM) attacks. Always perform proper certificate and hostname verification."
+        ));
+    }
+
+    // Check 7: Hardcoded Cryptographic Keys/IVs
+    Matcher hardcodedCryptoMatcher = hardcodedCryptoPattern.matcher(line);
+    if (hardcodedCryptoMatcher.find()) {
+        String matchedSnippet = hardcodedCryptoMatcher.group(0);
+        // Basic filtering to reduce false positives for very common, non-secret strings
+        if (!lowerCaseLine.contains("android.security.") && !lowerCaseLine.contains("context.registerreceiver") && !lowerCaseLine.contains("new string(")) {
+            vulnerabilities.add(new Vulnerability(
+                "Hardcoded Cryptographic Key/IV/Salt",
+                "A cryptographic key, IV (Initialization Vector), or salt is hardcoded in source code.",
+                "High",
+                relativePath,
+                "Found: '" + matchedSnippet + "' in line " + (i + 1) + ". Hardcoding cryptographic secrets severely compromises the security of encrypted data. Use Android Keystore or a secure key management system."
+            ));
+        }
+    }
+    // ... rest of the for loop and the method ...
+}
+
+            // --- SINGLE LOOP FOR ALL CHECKS ---
             for (int i = 0; i < lines.size(); i++) {
                 String line = lines.get(i);
+                String lowerCaseLine = line.toLowerCase(); // Use for case-insensitive checks where relevant
 
                 // Check 1: WebView.setJavaScriptEnabled(true)
                 Matcher webviewJsMatcher = webviewJsEnabledPattern.matcher(line);
@@ -371,6 +448,48 @@ public class App {
                         "Medium",
                         relativePath,
                         "Found in line " + (i + 1) + ". Logging sensitive data like passwords or tokens can lead to information disclosure. Remove sensitive data from log statements in production builds."
+                    ));
+                }
+
+                // Check 3: Sensitive Input to Log Flow (Simplified)
+                Matcher inputToLogMatcher = sensitiveInputToLogPattern.matcher(line);
+                if (inputToLogMatcher.find()) {
+                    String matchedSnippet = inputToLogMatcher.group(0);
+                    // Basic filtering for common false positives where a variable might be called 'key' but isn't sensitive.
+                    if (!lowerCaseLine.contains("bundle.getkey") && !lowerCaseLine.contains("map.getkey")) {
+                         vulnerabilities.add(new Vulnerability(
+                            "Potential Insecure Data Flow: Sensitive Input to Log",
+                            "A variable potentially sourced from sensitive input (e.g., Intent, EditText) is immediately logged.",
+                            "Medium",
+                            relativePath,
+                            "Found: '" + matchedSnippet + "' in line " + (i + 1) + ". Logging direct user input or sensitive data can lead to information disclosure. Implement proper input validation and avoid logging sensitive user data."
+                        ));
+                    }
+                }
+
+                // Check 4: Weak Cryptography
+                Matcher weakCipherMatcher = weakCipherPattern.matcher(line);
+                if (weakCipherMatcher.find()) {
+                    String matchedMethod = weakCipherMatcher.group(0);
+                    vulnerabilities.add(new Vulnerability(
+                        "Weak Cryptographic Algorithm/Mode",
+                        "Usage of a known weak cryptographic algorithm or mode detected.",
+                        "High",
+                        relativePath,
+                        "Found: '" + matchedMethod + "' in line " + (i + 1) + ". Algorithms like DES, RC4, and modes like AES/ECB are vulnerable to attacks. Use strong algorithms (e.g., AES/GCM) and secure modes (e.g., CBC with a unique IV, GCM)."
+                    ));
+                }
+
+                // Check 5: Insecure File Mode
+                Matcher insecureFileModeMatcher = insecureFileModePattern.matcher(line);
+                if (insecureFileModeMatcher.find()) {
+                    String matchedMode = insecureFileModeMatcher.group(0);
+                    vulnerabilities.add(new Vulnerability(
+                        "Insecure File Storage Mode",
+                        "Usage of MODE_WORLD_READABLE or MODE_WORLD_WRITABLE detected.",
+                        "High",
+                        relativePath,
+                        "Found: '" + matchedMode + "' in line " + (i + 1) + ". Storing data with world-readable/writable permissions allows any other application to access or modify your app's private files. Use MODE_PRIVATE for sensitive data."
                     ));
                 }
             }

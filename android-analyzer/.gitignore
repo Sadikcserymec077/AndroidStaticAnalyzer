@@ -1,0 +1,40 @@
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildnumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Java
+*.class
+
+# IDEs
+.idea/                  # IntelliJ IDEA
+.vscode/                # VS Code (if you have local settings you don't want to share)
+*.iml                   # IntelliJ IDEA module files
+.project                # Eclipse
+.classpath              # Eclipse
+.settings/              # Eclipse
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~.nib
+local.properties
+*.prof
+*.apk                 # Ignore APKs (they are generated artifacts)
+*.json                # Ignore generated JSON reports
+*.pdf                 # Ignore generated PDF reports
+*.iml
+
+# Decompiled output directories
+apktool_output_*
+jadx_output_*

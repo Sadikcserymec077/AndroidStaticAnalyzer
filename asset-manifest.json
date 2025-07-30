@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/css/main.c1dad92f.css",
+    "main.js": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/js/main.39a43163.js",
+    "static/js/453.79f7369d.chunk.js": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/js/453.79f7369d.chunk.js",
+    "index.html": "/AndroidStaticAnalyzer/android-analyzer-frontend/index.html",
+    "main.c1dad92f.css.map": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/css/main.c1dad92f.css.map",
+    "main.39a43163.js.map": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/js/main.39a43163.js.map",
+    "453.79f7369d.chunk.js.map": "/AndroidStaticAnalyzer/android-analyzer-frontend/static/js/453.79f7369d.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.c1dad92f.css",
+    "static/js/main.39a43163.js"
+  ]
+}

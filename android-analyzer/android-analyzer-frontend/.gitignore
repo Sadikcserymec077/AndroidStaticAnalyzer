@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# React Frontend specific ignores (now that it's a subdirectory)
+android-analyzer-frontend/node_modules/
+android-analyzer-frontend/build/
+

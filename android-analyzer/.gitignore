@@ -38,3 +38,7 @@ local.properties
 # Decompiled output directories
 apktool_output_*
 jadx_output_*
+
+# React Frontend specific ignores (now that it's a subdirectory)
+android-analyzer-frontend/node_modules/
+android-analyzer-frontend/build/

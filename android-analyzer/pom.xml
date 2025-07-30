@@ -24,20 +24,40 @@
             <version>4.11</version>
             <scope>test</scope>
         </dependency>
+        <!-- Gson for JSON processing -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
         </dependency>
+        <!-- Apache PDFBox for PDF generation -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>2.0.30</version>
         </dependency>
+        <!-- NEW: SparkJava for web server -->
+        <dependency>
+            <groupId>com.sparkjava</groupId>
+            <artifactId>spark-core</artifactId>
+            <version>2.9.4</version>
+        </dependency>
+        <!-- NEW: Jetty for multipart form data handling (Corrected versions) -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-webapp</artifactId>
+            <version>9.4.48.v20220622</version> <!-- Corrected version -->
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.websocket</groupId>
+            <artifactId>websocket-server</artifactId>
+            <version>9.4.48.v20220622</version> <!-- Corrected version -->
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Maven Compiler Plugin to ensure Java 17 is used -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -47,6 +67,7 @@
                     <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
+            <!-- Maven JAR Plugin to set the Main-Class for the executable JAR -->
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.0.2</version>
@@ -59,6 +80,7 @@
                     </archive>
                 </configuration>
             </plugin>
+            <!-- IMPORTANT: Maven SHADE Plugin to create a fat JAR with all dependencies -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -85,11 +107,10 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                            </configuration>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
-
-        </build>
+    </build>
 </project>
